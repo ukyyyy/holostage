@@ -4,45 +4,129 @@
   <meta charset="UTF-8">
   <title>HoloStage Example</title>
   <style>
-    body { margin: 0; background: #111; }
+    body { margin: 0; background: #0c0c14; color: #fff; font-family: 'Inter', system-ui, sans-serif; }
     #game { width: 100vw; height: 100vh; display: block; }
+
+    /* Scoreboard: everything is plain HTML, so override freely */
+    .hs-scoreboard,
+    .arena-board {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      min-width: 220px;
+      background: rgba(16, 18, 34, 0.8);
+      border: 1px solid #394169;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(6px);
+    }
+
+    .hs-scoreboard__title,
+    .arena-board__title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8ddcff;
+    }
+
+    .hs-scoreboard__row,
+    .arena-board__row {
+      display: grid;
+      grid-template-columns: 1fr 70px 70px;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      margin-bottom: 4px;
+      align-items: center;
+    }
+
+    .hs-scoreboard__name, .arena-board__name { font-weight: 600; color: #fdfbff; }
+    .hs-scoreboard__team, .arena-board__team { font-size: 11px; color: #99a3c7; }
+    .hs-scoreboard__health, .arena-board__health { font-size: 12px; color: #ff7a7a; }
+    .hs-scoreboard__score, .arena-board__score { font-weight: 700; text-align: right; color: #d5f279; }
   </style>
 </head>
 <body>
 
   <div id="level1"
        data-hs-scene
-       data-hs-background="#202838">
+       data-hs-background="#202838"
+       data-hs-multiplayer="true"
+       data-hs-weapons="bow:damage=9,cooldown=0.6 | pistol:damage=14,cooldown=0.25,projectileSpeed=18,color=#ffd166">
 
-    <div data-hs-entity="player"
+    <div data-hs-entity="blue"
          data-hs-color="#4af"
          data-hs-pos="2,2,0"
          data-hs-size="1,1"
+         data-hs-controls="wasd"
+         data-hs-physics="dynamic"
+         data-hs-speed="6"
+         data-hs-jump="12"
+         data-hs-team="aqua"
+         data-hs-weapon="bow"
+         data-hs-scoreboard="true">
+    </div>
+
+    <div data-hs-entity="red"
+         data-hs-color="#f36"
+         data-hs-pos="8,2,0"
+         data-hs-size="1,1"
          data-hs-controls="arrows"
-         data-hs-physics="dynamic">
+         data-hs-physics="dynamic"
+         data-hs-speed="6"
+         data-hs-jump="12"
+         data-hs-team="crimson"
+         data-hs-weapon="pistol"
+         data-hs-scoreboard="true">
     </div>
 
     <div data-hs-entity="ground"
-         data-hs-color="#444"
+         data-hs-color="#2c304b"
          data-hs-pos="0,10,0"
          data-hs-size="20,1"
          data-hs-physics="static">
     </div>
 
+    <div data-hs-entity="platform1"
+         data-hs-color="#2a2f48"
+         data-hs-pos="4,7,0"
+         data-hs-size="4,0.6"
+         data-hs-physics="static">
+    </div>
+
+    <div data-hs-entity="platform2"
+         data-hs-color="#2a2f48"
+         data-hs-pos="12,5,0"
+         data-hs-size="4,0.6"
+         data-hs-physics="static">
+    </div>
+
+    <scoreboard data-hs-scoreboard-ui
+                data-hs-heading="Arena Clash"
+                data-hs-classname="arena-board"
+                class="arena-board"></scoreboard>
   </div>
 
   <canvas id="game"></canvas>
-  <script src="https://cdn.jsdelivr.net/gh/FAYSi223/holostage@v1.0.0/holostage.js"></script>
+  <script src="./holostage.js"></script>
 
   <script>
     const game = HoloStage.create('#game', {
       pixelScale: 4,
       gravity: 15,
-      cameraFollow: 'player',
-      debug: true
+      cameraFollow: 'blue',
+      debug: true,
+      background: '#0c0f25'
     });
 
-    game.loadSceneFromDOM('#level1');
+    const scene = game.loadSceneFromDOM('#level1');
+
+    scene.at(2, () => console.log('Fight!'));
+
     game.start();
   </script>
 </body>
