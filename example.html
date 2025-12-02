@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>HoloStage Example</title>
+  <style>
+    body { margin: 0; background: #111; }
+    #game { width: 100vw; height: 100vh; display: block; }
+  </style>
+</head>
+<body>
+
+  <div id="level1"
+       data-hs-scene
+       data-hs-background="#202838">
+
+    <div data-hs-entity="player"
+         data-hs-color="#4af"
+         data-hs-pos="2,2,0"
+         data-hs-size="1,1"
+         data-hs-controls="arrows"
+         data-hs-physics="dynamic">
+    </div>
+
+    <div data-hs-entity="ground"
+         data-hs-color="#444"
+         data-hs-pos="0,10,0"
+         data-hs-size="20,1"
+         data-hs-physics="static">
+    </div>
+
+  </div>
+
+  <canvas id="game"></canvas>
+  <script src="https://cdn.jsdelivr.net/gh/FAYSi223/holostage@v1.0.0/holostage.js"></script>
+
+  <script>
+    const game = HoloStage.create('#game', {
+      pixelScale: 4,
+      gravity: 15,
+      cameraFollow: 'player',
+      debug: true
+    });
+
+    game.loadSceneFromDOM('#level1');
+    game.start();
+  </script>
+</body>
+</html>
