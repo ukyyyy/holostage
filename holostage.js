@@ -17,6 +17,14 @@
     return out;
   }
 
+  function parseBool(val, defaultValue = false) {
+    if (val == null) return defaultValue;
+    const normalized = String(val).trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+    return defaultValue;
+  }
+
   function loadImage(src) {
     if (!src) return null;
     const img = new Image();
@@ -89,6 +97,37 @@
     return Object.keys(map).length ? map : null;
   }
 
+  function parseWeaponDefinitions(str) {
+    if (!str) return {};
+    return String(str)
+      .split('|')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .reduce((acc, entry) => {
+        const [name, props] = entry.split(/[:=]/);
+        if (!name) return acc;
+        acc[name.trim()] = parseProps(props || '');
+        return acc;
+      }, {});
+  }
+
+  function resolveWeaponSpec(spec, definitions) {
+    if (!spec) return null;
+    const trimmed = String(spec).trim();
+    if (definitions && definitions[trimmed]) {
+      return Object.assign({ name: trimmed }, definitions[trimmed]);
+    }
+    const parsed = typeof spec === 'string' ? parseProps(spec) : spec;
+    if (parsed.preset && definitions && definitions[parsed.preset]) {
+      return Object.assign({ name: parsed.preset }, definitions[parsed.preset], parsed);
+    }
+    return parsed;
+  }
+
+  function clone(obj) {
+    return JSON.parse(JSON.stringify(obj || {}));
+  }
+
   function create(canvasOrSelector, options) {
     const canvas =
       typeof canvasOrSelector === 'string'
@@ -108,6 +147,35 @@
         cameraFollow: null,
         background: '#000000',
         debug: false
+        debug: false,
+        multiplayer: true,
+        weaponDefine: true,
+        weaponDefinitions: {
+          pulse: {
+            name: 'Pulse',
+            damage: 10,
+            cooldown: 0.4,
+            projectileSpeed: 12,
+            color: '#ff6ad5',
+            size: [0.3, 0.3]
+          },
+          bow: {
+            name: 'Bow',
+            damage: 8,
+            cooldown: 0.65,
+            projectileSpeed: 11,
+            color: '#8ddcff',
+            size: [0.25, 0.25]
+          },
+          pistol: {
+            name: 'Pistol',
+            damage: 14,
+            cooldown: 0.25,
+            projectileSpeed: 18,
+            color: '#ffd166',
+            size: [0.22, 0.22]
+          }
+        }
       },
       options || {}
     );
@@ -141,6 +209,10 @@
         const name = root.id || 'domScene';
         const scene = createEmptyScene(name, game);
 
+        scene.multiplayer = parseBool(root.getAttribute('data-hs-multiplayer'), game.options.multiplayer);
+        const weaponDefAttr = root.getAttribute('data-hs-weapons');
+        scene.weaponDefinitions = parseWeaponDefinitions(weaponDefAttr);
+
         const bg = root.getAttribute('data-hs-background');
         if (bg) scene.background = bg;
 
@@ -152,13 +224,20 @@
           const color = el.getAttribute('data-hs-color') || '#ffffff';
           const spriteSrc = el.getAttribute('data-hs-sprite');
           const physics = el.getAttribute('data-hs-physics') || 'none';
+          const controls = el.getAttribute('data-hs-controls') || null;
           const controls = parseControls(el.getAttribute('data-hs-controls'));
           const moveMode = el.getAttribute('data-hs-move') || 'platformer';
           const team = el.getAttribute('data-hs-team') || null;
           const health = parseFloat(el.getAttribute('data-hs-health')) || 100;
           const speed = parseFloat(el.getAttribute('data-hs-speed')) || 4;
           const jumpForce = parseFloat(el.getAttribute('data-hs-jump')) || 10;
-          const weapon = parseProps(el.getAttribute('data-hs-weapon'));
+          const weaponAttr = el.getAttribute('data-hs-weapon');
+          const weapon = weaponAttr
+            ? resolveWeaponSpec(
+                weaponAttr,
+                Object.assign({}, game.options.weaponDefinitions, scene.weaponDefinitions)
+              )
+            : undefined;
           const trackScore = el.getAttribute('data-hs-scoreboard') === 'true';
 
           scene.addEntity({
@@ -168,6 +247,7 @@
             color,
             sprite: spriteSrc ? loadImage(spriteSrc) : null,
             physics,
+            controls
             controls,
             moveMode,
             team,
@@ -182,6 +262,16 @@
 
         game.scenes[name] = scene;
         game.currentScene = scene;
+        // Optional scoreboard UI placeholder inside the DOM scene
+        const scoreboardEl = root.querySelector('[data-hs-scoreboard-ui], scoreboard');
+        if (scoreboardEl) {
+          const heading = scoreboardEl.getAttribute('data-hs-heading') || scoreboardEl.getAttribute('title');
+          const className =
+            scoreboardEl.getAttribute('data-hs-classname') ||
+            (scoreboardEl.className ? scoreboardEl.className.trim() : 'hs-scoreboard');
+          game.createScoreboard({ element: scoreboardEl, heading, className });
+        }
+
         return scene;
       },
 
@@ -203,17 +293,42 @@
           ctx.restore();
         }
       },
-      createScoreboard({ container = document.body, className = 'hs-scoreboard', heading = 'Scoreboard' } = {}) {
-        const el = document.createElement('div');
-        el.className = className;
-        const title = document.createElement('div');
-        title.className = `${className}__title`;
+      createScoreboard({
+        container = document.body,
+        className = 'hs-scoreboard',
+        heading = 'Scoreboard',
+        element = null
+      } = {}) {
+        const el = element || document.createElement('div');
+        const baseClassName = (className || el.className || 'hs-scoreboard')
+          .split(/\s+/)
+          .filter(Boolean)[0] || 'hs-scoreboard';
+        el.classList.add(baseClassName);
+        const ensure = (selector, buildFn) => {
+          let node = el.querySelector(selector);
+          if (!node) {
+            node = buildFn();
+            el.appendChild(node);
+          }
+          return node;
+        };
+
+        const title = ensure(`.${baseClassName}__title`, () => {
+          const node = document.createElement('div');
+          node.className = `${baseClassName}__title`;
+          return node;
+        });
         title.textContent = heading;
-        const list = document.createElement('div');
-        list.className = `${className}__list`;
-        el.appendChild(title);
-        el.appendChild(list);
-        container.appendChild(el);
+
+        const list = ensure(`.${baseClassName}__list`, () => {
+          const node = document.createElement('div');
+          node.className = `${baseClassName}__list`;
+          return node;
+        });
+
+        if (!element) {
+          container.appendChild(el);
+        }
         game.scoreboard = {
           element: el,
           list,
@@ -223,18 +338,25 @@
               .sort((a, b) => (b.score || 0) - (a.score || 0))
               .forEach((p) => {
                 const row = document.createElement('div');
-                row.className = `${className}__row`;
+                row.className = `${baseClassName}__row`;
                 row.innerHTML = `
-                  <span class="${className}__name">${p.name}</span>
-                  <span class="${className}__team">${p.team || 'solo'}</span>
-                  <span class="${className}__health">❤ ${Math.max(0, Math.round(p.health || 0))}</span>
-                  <span class="${className}__score">${p.score || 0}</span>
+                  <span class="${baseClassName}__name">${p.name}</span>
+                  <span class="${baseClassName}__team">${p.team || 'solo'}</span>
+                  <span class="${baseClassName}__health">❤ ${Math.max(0, Math.round(p.health || 0))}</span>
+                  <span class="${baseClassName}__score">${p.score || 0}</span>
                 `;
                 list.appendChild(row);
               });
           }
         };
         return game.scoreboard;
+      },
+
+      registerWeapon(name, config) {
+        if (!name || typeof config !== 'object') return;
+        game.options.weaponDefinitions = game.options.weaponDefinitions || {};
+        game.options.weaponDefinitions[name] = clone(config);
+        return game.options.weaponDefinitions[name];
       },
       start() {
         game.running = true;
@@ -259,12 +381,14 @@
             {
               name: 'entity',
               pos: [0, 0, 0], // x, y, z
+              size: [1, 1],   // w, h 
               size: [1, 1],   // w, h
               color: '#ffffff',
               sprite: null,
               physics: 'none',   // 'none' | 'dynamic' | 'static'
               controls: null,    // 'arrows'
               vx: 0,
+              vy: 0
               vy: 0,
               speed: 4,
               jumpForce: 10,
@@ -337,11 +461,19 @@
       const statics = scene.entities.filter((e) => e.physics === 'static');
 
       scene.entities.forEach((ent) => {
+        // Controls: "arrows"
+        if (ent.controls === 'arrows') {
+          const speed = 4; 
         ent.onGround = false;
         const controls = ent.controls;
         if (controls) {
           const speed = ent.speed || 4;
           let vx = 0;
+          let vy = 0;
+          if (keyState['ArrowLeft']) vx -= speed;
+          if (keyState['ArrowRight']) vx += speed;
+          if (keyState['ArrowUp']) vy -= speed;
+          if (keyState['ArrowDown']) vy += speed;
           let vy = ent.moveMode === 'topdown' || ent.physics === 'none' ? 0 : ent.vy;
 
           if (controls.left && keyState[controls.left]) vx -= speed;
@@ -373,6 +505,11 @@
         ent.pos[1] += ent.vy * dt;
 
         if (ent.physics === 'dynamic') {
+          const groundY = 10;
+          if (ent.pos[1] > groundY) {
+            ent.pos[1] = groundY;
+            ent.vy = 0;
+          }
           statics.forEach((obstacle) => {
             if (obstacle === ent) return;
             resolveCollision(ent, obstacle);
@@ -395,7 +532,9 @@
         }
       });
 
-      handlePvp(scene);
+      if (scene.multiplayer !== false && game.options.multiplayer !== false) {
+        handlePvp(scene);
+      }
 
       scene.entities = scene.entities.filter((e) => !e.dead);
 
@@ -418,7 +557,11 @@
 
     function tryAttack(ent, scene, dt) {
       if (!ent.weapon) return;
-      const weapon = Object.assign({}, game.options.defaultWeapon || {}, ent.weapon);
+      const weapon = Object.assign(
+        {},
+        game.options.defaultWeapon || {},
+        resolveWeaponSpec(ent.weapon, game.options.weaponDefinitions)
+      );
       const now = performance.now() / 1000;
       const cooldown = parseFloat(weapon.cooldown);
       if (now - (ent.lastAttack || 0) < (Number.isFinite(cooldown) ? cooldown : 0.2)) return;
@@ -558,39 +701,3 @@
         const [w, h] = ent.size;
 
         const screenX = x * px - game.camera.x;
-        const screenY = y * px - game.camera.y;
-        const screenW = w * px;
-        const screenH = h * px;
-
-        ctx.save();
-
-        const zOffsetY = -z * (px * 0.2);
-        ctx.translate(0, zOffsetY);
-
-        if (ent.sprite && ent.sprite.complete) {
-          ctx.drawImage(ent.sprite, screenX, screenY, screenW, screenH);
-        } else {
-          ctx.fillStyle = ent.color || '#ffffff';
-          ctx.fillRect(screenX, screenY, screenW, screenH);
-        }
-
-        // Debug-Hitbox
-        if (game.options.debug) {
-          ctx.strokeStyle = '#ff00ff';
-          ctx.strokeRect(screenX, screenY, screenW, screenH);
-        }
-
-        ctx.restore();
-      });
-    }
-
-    return game;
-  }
-
-  // Public API
-  const HoloStage = {
-    create
-  };
-
-  global.HoloStage = HoloStage;
-})(typeof window !== 'undefined' ? window : this);
