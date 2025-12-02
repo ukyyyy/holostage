@@ -20,7 +20,8 @@ HoloStage.js allows you to describe entire game scenes directly in HTML using `d
 * Camera follow system
 * Debug mode with hitbox display
 * PvP-friendly mechanics: projectiles, collision damage, teams, and scores
-* Drop-in scoreboard UI that is pure HTML/CSS for easy theming
+* Built-in weapon presets (pulse, bow, pistol) with the ability to define your own presets inline
+* Drop-in scoreboard UI that is pure HTML/CSS for easy theming or binding to a custom `<scoreboard>` element
 
 ---
 
@@ -46,43 +47,7 @@ Use jsDelivr to load the engine directly from your GitHub repository:
 
 ```html
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>HoloStage Demo</title>
-  <style>
-    body { margin: 0; background: #111; }
-    #game { width: 100vw; height: 100vh; display: block; }
-  </style>
-</head>
-<body>
-
-  <div id="level1"
-       data-hs-scene
-       data-hs-background="#202838">
-
-    <div data-hs-entity="player"
-         data-hs-color="#4af"
-         data-hs-pos="2,2,0"
-         data-hs-size="1,1"
-         data-hs-controls="arrows"
-         data-hs-physics="dynamic">
-    </div>
-
-    <div data-hs-entity="ground"
-         data-hs-color="#444"
-         data-hs-pos="0,10,0"
-         data-hs-size="20,1"
-         data-hs-physics="static">
-    </div>
-
-  </div>
-
-  <canvas id="game"></canvas>
-
-  <script src="https://cdn.jsdelivr.net/gh/ukyyyy/holostage@v1.0.0/game.js"></script>
-
-  <script>
+@@ -83,108 +87,132 @@ Use jsDelivr to load the engine directly from your GitHub repository:
     const game = HoloStage.create('#game', {
       pixelScale: 4,
       gravity: 15,
@@ -114,6 +79,15 @@ Creates a new game instance.
 | `gravity`      | World gravity in px/s                      |
 | `cameraFollow` | Name of an entity the camera should follow |
 | `debug`        | Draws hitboxes and debug info              |
+| Option              | Description                                                                 |
+| ------------------- | --------------------------------------------------------------------------- |
+| `pixelScale`        | Pixel scaling factor (default: 4)                                           |
+| `gravity`           | World gravity in px/s                                                       |
+| `cameraFollow`      | Name of an entity the camera should follow                                  |
+| `debug`             | Draws hitboxes and debug info                                               |
+| `multiplayer`       | Enables PvP collisions and scoring (default: `true`)                        |
+| `weaponDefine`      | Keeps built-in weapon presets active (default: `true`)                      |
+| `weaponDefinitions` | Object map of weapon presets you can extend (defaults: `pulse`, `bow`, `pistol`) |
 
 ---
 
@@ -138,6 +112,8 @@ data-hs-jump
 data-hs-team
 data-hs-weapon
 data-hs-scoreboard
+data-hs-multiplayer
+data-hs-weapons
 ```
 
 ---
@@ -176,13 +152,15 @@ game.useScene('test');
 | `team`     | Optional team label         |
 | `weapon`   | `name:Pulse;damage:12` etc. |
 | `scoreboard`| `true` to track on the HUD |
+| `multiplayer` | Scene-level toggle to keep PvP logic on/off |
+| `weapons`  | Define custom presets at the scene root using `data-hs-weapons` |
 
 ### PvP, Weapons & Scoreboard
 
 * **Controls** – use `arrows`, `wasd`, `ijkl`, or a custom map such as `left=a,right=d,jump=Space,attack=f`.
-* **Weapons** – attach `data-hs-weapon="name:Laser;damage:14;projectileSpeed:15;color:#ff89c9"` to spawn colored projectiles with per-entity cooldowns.
+* **Weapons** – attach `data-hs-weapon="bow"` to use the built-in bow preset or override with `data-hs-weapon="name:Laser;damage:14;projectileSpeed:15;color:#ff89c9"`. Add scene-wide presets via `data-hs-weapons="bow:damage=9,cooldown=0.6 | pistol:damage=14,cooldown=0.25"` on the scene container.
 * **Teams** – add `data-hs-team="red"` or `data-hs-team="blue"` to prevent friendly fire and organize the scoreboard.
-* **Scoreboard** – call `game.createScoreboard({ heading: 'Arena' })` after `loadSceneFromDOM`. The HUD is plain HTML (`.hs-scoreboard` classes) so you can restyle it with your own CSS.
+* **Scoreboard** – call `game.createScoreboard({ heading: 'Arena', className: 'my-board' })` or place a `<scoreboard data-hs-scoreboard-ui data-hs-heading="Arena" data-hs-classname="my-board"></scoreboard>` inside the scene container. The HUD is plain HTML (`.hs-scoreboard` classes by default) so you can restyle it with your own CSS.
 
 ---
 
@@ -193,3 +171,10 @@ scene.at(5, () => {
   console.log('5 seconds elapsed');
 });
 ```
+
+---
+
+## Development & Build
+
+HoloStage.js is a **single-file project**.
+No build tools, transpilers, or bundlers required.
