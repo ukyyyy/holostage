@@ -15,9 +15,12 @@ HoloStage.js allows you to describe entire game scenes directly in HTML using `d
 * Retro pixel scaling
 * Built-in input control module (arrow keys, etc.)
 * Lightweight physics (gravity, velocity, static/dynamic bodies)
+* Platformer jump physics and directional control maps (`arrows`, `wasd`, `ijkl` or custom mappings)
 * Timeline events (`scene.at(time, fn)`)
 * Camera follow system
 * Debug mode with hitbox display
+* PvP-friendly mechanics: projectiles, collision damage, teams, and scores
+* Drop-in scoreboard UI that is pure HTML/CSS for easy theming
 
 ---
 
@@ -130,6 +133,11 @@ data-hs-color
 data-hs-sprite
 data-hs-controls
 data-hs-physics
+data-hs-speed
+data-hs-jump
+data-hs-team
+data-hs-weapon
+data-hs-scoreboard
 ```
 
 ---
@@ -163,6 +171,18 @@ game.useScene('test');
 | `sprite`   | Image object                |
 | `physics`  | `none`, `static`, `dynamic` |
 | `controls` | `arrows` for keyboard input |
+| `speed`    | Horizontal move speed       |
+| `jump`     | Jump impulse for platformers|
+| `team`     | Optional team label         |
+| `weapon`   | `name:Pulse;damage:12` etc. |
+| `scoreboard`| `true` to track on the HUD |
+
+### PvP, Weapons & Scoreboard
+
+* **Controls** – use `arrows`, `wasd`, `ijkl`, or a custom map such as `left=a,right=d,jump=Space,attack=f`.
+* **Weapons** – attach `data-hs-weapon="name:Laser;damage:14;projectileSpeed:15;color:#ff89c9"` to spawn colored projectiles with per-entity cooldowns.
+* **Teams** – add `data-hs-team="red"` or `data-hs-team="blue"` to prevent friendly fire and organize the scoreboard.
+* **Scoreboard** – call `game.createScoreboard({ heading: 'Arena' })` after `loadSceneFromDOM`. The HUD is plain HTML (`.hs-scoreboard` classes) so you can restyle it with your own CSS.
 
 ---
 
